@@ -108,6 +108,19 @@ abstract class AnnotationTestFixtureBase(
         checkAfter = this::checkByText,
         testmark = testmark)
 
+    fun checkFixPartial(
+        fixName: String,
+        before: String,
+        checkWarn: Boolean = true,
+        checkInfo: Boolean = false,
+        checkWeakWarn: Boolean = false,
+        testmark: Testmark? = null
+    ) = checkFix(fixName, before, before,
+        configure = this::configureByText,
+        checkBefore = { codeInsightFixture.checkHighlighting(checkWarn, checkInfo, checkWeakWarn) },
+        checkAfter = { },
+        testmark = testmark)
+
     fun checkFixIsUnavailable(
         fixName: String,
         text: String,

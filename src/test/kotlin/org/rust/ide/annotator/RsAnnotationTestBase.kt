@@ -94,6 +94,22 @@ abstract class RsAnnotationTestBase : RsTestBase() {
         testmark: Testmark? = null
     ) = annotationFixture.checkFixByFileTreeWithoutHighlighting(fixName, before, after, stubOnly, testmark)
 
+    protected fun checkFixByTextWithLiveTemplate(
+        fixName: String,
+        @Language("Rust") before: String,
+        toType: String,
+        @Language("Rust") after: String,
+        fileName: String = "main.rs",
+        checkWarn: Boolean = true,
+        checkInfo: Boolean = false,
+        checkWeakWarn: Boolean = false,
+        testmark: Testmark? = null
+    ) {
+        checkByTextWithLiveTemplate(before, after.trimIndent(), toType, fileName) {
+            annotationFixture.checkFixPartial(fixName, before, checkWarn, checkInfo, checkWeakWarn, testmark)
+        }
+    }
+
     protected fun checkFixIsUnavailable(
         fixName: String,
         @Language("Rust") text: String,
