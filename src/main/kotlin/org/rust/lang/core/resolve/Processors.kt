@@ -7,6 +7,7 @@ package org.rust.lang.core.resolve
 
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.util.SmartList
+import org.rust.cargo.toolchain.RustChannel
 import org.rust.lang.core.completion.RsCompletionContext
 import org.rust.lang.core.completion.collectVariantsForEnumCompletion
 import org.rust.lang.core.completion.createLookupElement
@@ -315,13 +316,14 @@ fun filterCompletionVariantsByVisibility(context: RsElement, processor: RsResolv
         return processor
     }
     val mod = context.containingMod
+    val isStableRustCompiler = mod.cargoProject?.rustcInfo?.version?.channel == RustChannel.STABLE
     return createProcessor(processor.name) {
         val element = it.element
         if (element is RsVisible && !element.isVisibleFrom(mod)) return@createProcessor false
         if (!it.isVisibleFrom(context)) return@createProcessor false
 
-        val isHidden = element is RsOuterAttributeOwner && element.queryAttributes.isDocHidden &&
-            element.containingMod != mod
+        val isHidden = element is RsOuterAttributeOwner && element.containingMod != mod &&
+            (element.queryAttributes.isDocHidden || isStableRustCompiler && element.queryAttributes.unstableAttributes.count() != 0)
         if (isHidden) return@createProcessor false
 
         processor(it)
