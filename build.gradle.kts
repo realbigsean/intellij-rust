@@ -361,6 +361,7 @@ project(":") {
             exclude(module = "kotlin-stdlib")
             exclude(module = "kotlin-stdlib-common")
         }
+        implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.13.0")
         api("com.vdurmont:semver4j:3.1.0")
         testImplementation("com.squareup.okhttp3:mockwebserver:4.9.3")
     }
