@@ -15,6 +15,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import com.intellij.util.containers.MultiMap
+import org.rust.cargo.toolchain.RustChannel
 import org.rust.ide.refactoring.RsNamesValidator
 import org.rust.ide.settings.RsCodeInsightSettings
 import org.rust.ide.utils.import.*
@@ -191,8 +192,15 @@ object RsCommonCompletionProvider : RsCompletionProvider() {
         val importContext = ImportContext2.from(path, ImportContext2.Type.COMPLETION) ?: return
         val candidates = ImportCandidatesCollector2.getCompletionCandidates(importContext, result.prefixMatcher, processedPathElements)
 
+        val contextMod = path.containingMod
+        val isNightlyRustCompiler = contextMod.cargoProject?.rustcInfo?.version?.channel == RustChannel.NIGHTLY
+
         for (candidate in candidates) {
             val item = candidate.qualifiedNamedItem.item
+            if (item is RsOuterAttributeOwner) {
+                val isHidden = item.shouldHideElementInCompletion(contextMod, isNightlyRustCompiler)
+                if (isHidden) continue
+            }
             val scopeEntry = SimpleScopeEntry(candidate.qualifiedNamedItem.itemName ?: continue, item)
 
             if (item is RsEnumItem

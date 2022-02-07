@@ -394,9 +394,6 @@ class QueryAttributes<out T: RsMetaItemPsiOrStub>(
     val cfgAttributes: Sequence<T>
         get() = attrsByName("cfg")
 
-    val unstableAttributes: Sequence<T>
-        get() = attrsByName("unstable")
-
     // `#[attributeName = "Xxx"]`
     private fun getStringAttributes(attributeName: String): Sequence<String> =
         attrsByName(attributeName).mapNotNull { it.value }
@@ -422,6 +419,17 @@ class QueryAttributes<out T: RsMetaItemPsiOrStub>(
         fun <T : RsMetaItemPsiOrStub> empty(): QueryAttributes<T> = EMPTY as QueryAttributes<T>
     }
 }
+
+val QueryAttributes<RsMetaItem>.stability: RsStability?
+    get() {
+        for (meta in metaItems) {
+            when (meta.name) {
+                "stable" -> return RsStability.Stable
+                "unstable" -> return RsStability.Unstable(meta)
+            }
+        }
+        return null
+    }
 
 /**
  * Checks if there are any #[cfg()] attributes that disable this element

@@ -7,14 +7,12 @@ package org.rust.lang.core.resolve
 
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.util.SmartList
+import org.rust.cargo.project.workspace.PackageOrigin
 import org.rust.cargo.toolchain.RustChannel
 import org.rust.lang.core.completion.RsCompletionContext
 import org.rust.lang.core.completion.collectVariantsForEnumCompletion
 import org.rust.lang.core.completion.createLookupElement
-import org.rust.lang.core.psi.RsDebuggerExpressionCodeFragment
-import org.rust.lang.core.psi.RsEnumItem
-import org.rust.lang.core.psi.RsFunction
-import org.rust.lang.core.psi.RsPath
+import org.rust.lang.core.psi.*
 import org.rust.lang.core.psi.ext.*
 import org.rust.lang.core.resolve.ref.MethodResolveVariant
 import org.rust.lang.core.types.BoundElement
@@ -315,17 +313,47 @@ fun filterCompletionVariantsByVisibility(context: RsElement, processor: RsResolv
     if (context.containingFile is RsDebuggerExpressionCodeFragment) {
         return processor
     }
-    val mod = context.containingMod
-    val isStableRustCompiler = mod.cargoProject?.rustcInfo?.version?.channel == RustChannel.STABLE
+    val contextMod = context.containingMod
+    val isNightlyRustCompiler = contextMod.cargoProject?.rustcInfo?.version?.channel == RustChannel.NIGHTLY
     return createProcessor(processor.name) {
         val element = it.element
-        if (element is RsVisible && !element.isVisibleFrom(mod)) return@createProcessor false
+        if (element is RsVisible && !element.isVisibleFrom(contextMod)) return@createProcessor false
         if (!it.isVisibleFrom(context)) return@createProcessor false
 
-        val isHidden = element is RsOuterAttributeOwner && element.containingMod != mod &&
-            (element.queryAttributes.isDocHidden || isStableRustCompiler && element.queryAttributes.unstableAttributes.count() != 0)
-        if (isHidden) return@createProcessor false
+        if (element is RsOuterAttributeOwner) {
+            val isHidden = element.shouldHideElementInCompletion(contextMod, isNightlyRustCompiler)
+            if (isHidden) return@createProcessor false
+        }
 
         processor(it)
     }
 }
+
+fun RsOuterAttributeOwner.shouldHideElementInCompletion(contextMod: RsMod, isNightlyRustCompiler: Boolean): Boolean {
+    val elementContainingMod = containingMod
+    if (elementContainingMod == contextMod) return false
+
+    // Hide `#[doc(hidden)]` items
+    if (queryAttributes.isDocHidden) return true
+
+    if (isNightlyRustCompiler) return false
+    if (containingCrate?.origin != PackageOrigin.STDLIB) return false
+
+    // Hide `#[unstable]` items
+    return when (stability) {
+        RsStability.Stable -> false
+        else -> true
+    }
+}
+
+val RsOuterAttributeOwner.stability: RsStability?
+    get() {
+        val selfStability = queryAttributes.stability
+        if (selfStability != null) return selfStability
+
+        return when (this) {
+            is RsEnumVariant -> parentEnum.stability
+            is RsFieldDecl -> (owner as? RsOuterAttributeOwner)?.stability
+            else -> null
+        }
+    }

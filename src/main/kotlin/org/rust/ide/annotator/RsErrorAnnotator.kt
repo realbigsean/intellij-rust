@@ -545,9 +545,10 @@ class RsErrorAnnotator : AnnotatorBase(), HighlightRangeExtension {
         val startElement = ref.referenceNameElement?.takeIf { it.elementType == IDENTIFIER } ?: return
         if (ref.containingCrate?.origin == PackageOrigin.STDLIB) return
         val element = ref.reference?.resolve() as? RsOuterAttributeOwner ?: return
-        for (attr in element.queryAttributes.unstableAttributes) {
-            val metaItems = attr.metaItemArgs?.metaItemList ?: continue
-            val featureName = metaItems.singleOrNull { it.name == "feature" }?.value ?: continue
+        val stability = element.stability
+        if (stability is RsStability.Unstable) {
+            val metaItems = stability.meta.metaItemArgs?.metaItemList ?: return
+            val featureName = metaItems.singleOrNull { it.name == "feature" }?.value ?: return
             val reason = metaItems.singleOrNull { it.name == "reason" }?.value
             val reasonSuffix = if (reason != null) ": $reason" else ""
             val feature = CompilerFeature.find(featureName)
