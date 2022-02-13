@@ -231,7 +231,7 @@ ColonTypeArgumentList ::= &'::' TypeArgumentListImpl { elementType = TypeArgumen
 private TypeArgumentListImpl ::= '::'? '<' !'=' <<list_element AnyTypeArgument>>* '>' { pin = 3 }
 private AnyTypeArgument ::= AssocTypeBinding | TypeReference | Lifetime | RestrictedConstExpr
 
-AssocTypeBinding ::= identifier (AssocTypeBindingType | AssocTypeBindingBound) {
+AssocTypeBinding ::= identifier TypeArgumentList? (AssocTypeBindingType | AssocTypeBindingBound) {
   implements = [ "org.rust.lang.core.psi.ext.RsMandatoryReferenceElement" ]
   mixin = "org.rust.lang.core.psi.ext.RsAssocTypeBindingMixin"
   stubClass = "org.rust.lang.core.stubs.RsAssocTypeBindingStub"
