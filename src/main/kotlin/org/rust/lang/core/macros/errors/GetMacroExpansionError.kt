@@ -36,10 +36,14 @@ sealed class GetMacroExpansionError {
     object NextStepMacroAccess : GetMacroExpansionError()
     object ExpandedInfoNotFound : GetMacroExpansionError()
 
+    object ModDataNotFound : GetMacroExpansionError()
+    object NoMacroIndex : GetMacroExpansionError()
+    object ExpansionFileNotFound : GetMacroExpansionError()
+
     // Can't expand the macro because ...
     // Failed to expand the macro because ...
     @Nls
-    fun toUserViewableMessage(): String = when(this) {
+    fun toUserViewableMessage(): String = when (this) {
         MacroExpansionIsDisabled -> "macro expansion is disabled in project settings"
         MacroExpansionEngineIsNotReady -> "macro expansion engine is not ready"
         IncludingFileNotFound -> "including file is not found"
@@ -83,6 +87,9 @@ sealed class GetMacroExpansionError {
                 "(maybe it's not provided for your platform by IntelliJ-Rust)"
             ProcMacroExpansionError.ProcMacroExpansionIsDisabled -> "procedural macro expansion is not enabled"
         }
+        ModDataNotFound -> "can't find ModData for containing mod of the macro call"
+        NoMacroIndex -> "can't find macro index of the macro call"
+        ExpansionFileNotFound -> "expansion file not found"
     }
 
     override fun toString(): String = "${GetMacroExpansionError::class.simpleName}.${javaClass.simpleName}"

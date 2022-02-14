@@ -112,7 +112,6 @@ class RsMacroExpansionCachingToolchainTest : RsWithToolchainTestBase() {
         check(project.cargoProjects.attachCargoProject(p.file("Cargo.toml").pathAsPath))
     }
 
-    @CheckTestmarkHit(StubBasedRefMatch::class)
     fun `test re-open project without changes`() = checkReExpanded(doNothing(), """
         //- main.rs
         macro_rules! foo { ($ i:ident) => { mod $ i {} } }
@@ -121,7 +120,6 @@ class RsMacroExpansionCachingToolchainTest : RsWithToolchainTestBase() {
         bar!(a);
     """)
 
-    @CheckTestmarkHit(StubBasedRefMatch::class)
     fun `test touch definition at separate file`() = checkReExpanded(touchFile("src/foo.rs"), """
         //- foo.rs
         macro_rules! foo { ($ i:ident) => { mod $ i {} } }
@@ -136,7 +134,6 @@ class RsMacroExpansionCachingToolchainTest : RsWithToolchainTestBase() {
         bar!(a);
     """)
 
-    @CheckTestmarkHit(RefsRecoverExactHit::class)
     fun `test touch usage at separate file`() = checkReExpanded(touchFile("src/main.rs"), """
         //- def.rs
         macro_rules! foo { ($ i:ident) => { mod $ i {} } }
@@ -146,14 +143,12 @@ class RsMacroExpansionCachingToolchainTest : RsWithToolchainTestBase() {
         foo!(a);
     """)
 
-    @CheckTestmarkHit(RefsRecoverNotHit::class)
     fun `test edit usage at same file`() = checkReExpanded(replaceInFile("src/main.rs", "aaa", "aab"), """
         //- main.rs
         macro_rules! foo { ($ i:ident) => { mod $ i {} } }
         foo!(aaa);
     """, "foo")
 
-    @CheckTestmarkHit(RefsRecoverNotHit::class)
     fun `test edit usage at separate file`() = checkReExpanded(replaceInFile("src/main.rs", "aaa", "aab"), """
         //- def.rs
         macro_rules! foo { ($ i:ident) => { mod $ i {} } }
@@ -163,14 +158,12 @@ class RsMacroExpansionCachingToolchainTest : RsWithToolchainTestBase() {
         foo!(aaa);
     """, "foo")
 
-    @CheckTestmarkHit(RefsRecoverCallHit::class)
     fun `test edit definition at same file`() = checkReExpanded(replaceInFile("src/main.rs", "aaa", "aab"), """
         //- main.rs
         macro_rules! foo { ($ i:ident) => { fn $ i() { aaa; } } }
         foo!(a);
     """, "foo")
 
-    @CheckTestmarkHit(StubBasedRefMatch::class)
     fun `test edit definition at separate file`() = checkReExpanded(replaceInFile("src/def.rs", "aaa", "aab"), """
         //- def.rs
         macro_rules! foo { ($ i:ident) => { fn $ i() { aaa; } } }

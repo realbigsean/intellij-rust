@@ -337,6 +337,16 @@ class MacroExpansionFileSystem : NewVirtualFileSystem() {
             fun delete() {
                 parent.removeChild(name, bump = true)
             }
+
+            fun absolutePath(): String =
+                buildString {
+                    fun FSItem.go() {
+                        parent?.go()
+                        append('/')
+                        append(name)
+                    }
+                    go()
+                }
         }
     }
 

@@ -12,6 +12,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.registry.Registry
 import com.intellij.openapi.util.registry.RegistryValue
 import com.intellij.openapi.vfs.newvfs.persistent.PersistentFS
+import gnu.trove.THashMap
 import org.rust.cargo.project.workspace.CargoWorkspaceData
 import org.rust.lang.core.crate.CratePersistentId
 import org.rust.lang.core.macros.*
@@ -61,6 +62,8 @@ class DefCollector(
     /** Created once as optimization */
     private val macroExpander = FunctionLikeMacroExpander.new(project)
     private val macroExpanderShared: MacroExpansionSharedCache = MacroExpansionSharedCache.getInstance()
+
+    private val macroMixHashToOrder: MutableMap<HashCode /* mix hash */, Int> = THashMap()
 
     private val shouldExpandMacros: Boolean =
         when (val mode = project.macroExpansionManager.macroExpansionMode) {
@@ -294,7 +297,8 @@ class DefCollector(
         val call: MacroCallInfo,
         val def: MacroDefInfo,
         val expandedFile: RsFileStub,
-        val expansion: ExpansionResultOk
+        val expansion: ExpansionResultOk,
+        val mixHash: HashCode,
     )
 
     private fun expandMacros(): Boolean {
@@ -311,6 +315,7 @@ class DefCollector(
             val def = defMap.resolveMacroCallToMacroDefInfo(call.containingMod, call.path, call.macroIndex)
                 ?: return@inPlaceRemoveIf false
 
+            if (call.body.kind != def.procMacroKind) return@inPlaceRemoveIf false
             if (tryTreatAsIdentityMacro(call, def)) return@inPlaceRemoveIf true
 
             macrosToExpandInParallel += ExpansionInput(call, def)
@@ -361,18 +366,29 @@ class DefCollector(
     private fun expandMacro(call: MacroCallInfo, def: MacroDefInfo): ExpansionOutput? {
         val defData = RsMacroDataWithHash.fromDefInfo(def).ok() ?: return null
         val callData = RsMacroCallDataWithHash(RsMacroCallData(call.body, defMap.metaData.env), call.bodyHash)
+        val mixHash = defData.mixHash(callData) ?: return null
         val (expandedFile, expansion) =
             macroExpanderShared.createExpansionStub(project, macroExpander, defData, callData) ?: return null
-        return ExpansionOutput(call, def, expandedFile, expansion)
+        return ExpansionOutput(call, def, expandedFile, expansion, mixHash)
     }
 
     private fun recordExpansion(result: ExpansionOutput): Boolean {
-        val (call, def, expandedFile, expansion) = result
+        val (call, def, expandedFile, expansion, mixHash) = result
         val dollarCrateHelper = createDollarCrateHelper(call, def, expansion)
 
         val context = getModCollectorContextForExpandedElements(call) ?: return true
         collectExpandedElements(expandedFile, call, context, dollarCrateHelper)
+        recordExpansionFileName(call, mixHash)
         return true
+    }
+
+    private fun recordExpansionFileName(call: MacroCallInfo, mixHash: HashCode) {
+        if (context.isHangingMode) return
+        val order = macroMixHashToOrder.merge(mixHash, 1, Int::plus)!!
+        val expansionName = "${mixHash}_$order.rs"
+        val lightInfo = MacroCallLightInfo(call.containingMod, call.macroIndex, call.body.kind)
+        defMap.macroCallToExpansionName[call.macroIndex] = expansionName
+        defMap.expansionNameToMacroCall[expansionName] = lightInfo
     }
 
     private fun expandIncludeMacroCall(call: MacroCallInfo) {
@@ -454,6 +470,8 @@ sealed class PartialResolvedImport {
 sealed class MacroDefInfo {
     abstract val crate: CratePersistentId
     abstract val path: ModPath
+
+    open val procMacroKind: RsProcMacroKind get() = RsProcMacroKind.FUNCTION_LIKE
 }
 
 class DeclMacroDefInfo(
@@ -492,7 +510,7 @@ class DeclMacro2DefInfo(
 class ProcMacroDefInfo(
     override val crate: CratePersistentId,
     override val path: ModPath,
-    val procMacroKind: RsProcMacroKind,
+    override val procMacroKind: RsProcMacroKind,
     val procMacroArtifact: CargoWorkspaceData.ProcMacroArtifact?,
     val kind: KnownProcMacroKind,
 ) : MacroDefInfo()
@@ -518,6 +536,12 @@ class MacroCallInfo(
 ) {
     override fun toString(): String = "${containingMod.path}:  ${path.joinToString("::")}! { $body }"
 }
+
+data class MacroCallLightInfo(
+    val containingMod: ModData,
+    val macroIndex: MacroIndex,
+    val kind: RsProcMacroKind,
+)
 
 /**
  * "Invalid" means it belongs to [ModData] which is no longer accessible from `defMap.root` using [ModData.childModules]
