@@ -5,30 +5,18 @@
 
 package org.rust.lang.core.psi.ext
 
-import com.intellij.lang.ASTNode
-import com.intellij.psi.PsiElement
-import com.intellij.psi.stubs.IStubElementType
 import org.rust.lang.core.psi.RsAssocTypeBinding
 import org.rust.lang.core.psi.RsPath
-import org.rust.lang.core.resolve.ref.RsAssocTypeBindingReferenceImpl
-import org.rust.lang.core.resolve.ref.RsReference
-import org.rust.lang.core.stubs.RsAssocTypeBindingStub
+import org.rust.lang.core.psi.RsTypeAlias
+import org.rust.lang.core.types.BoundElement
 
 // Current grammar allows to write assoc type bindings in method calls, e.g.
 // `a.foo::<Item = i32>()`, so it's nullable
 val RsAssocTypeBinding.parentPath: RsPath?
     get() = ancestorStrict()
 
-abstract class RsAssocTypeBindingMixin : RsStubbedElementImpl<RsAssocTypeBindingStub>,
-                                         RsAssocTypeBinding {
+fun RsAssocTypeBinding.resolveToAssocType(): RsTypeAlias? =
+    path.reference?.resolve() as? RsTypeAlias
 
-    constructor(node: ASTNode) : super(node)
-
-    constructor(stub: RsAssocTypeBindingStub, nodeType: IStubElementType<*, *>) : super(stub, nodeType)
-
-    override fun getReference(): RsReference = RsAssocTypeBindingReferenceImpl(this)
-
-    override val referenceNameElement: PsiElement get() = identifier
-
-    override val referenceName: String get() = greenStub?.referenceName ?: super.referenceName
-}
+fun RsAssocTypeBinding.resolveToBoundAssocType(): BoundElement<RsTypeAlias>? =
+    path.reference?.advancedResolve()?.downcast()

@@ -41,6 +41,10 @@ class RsPathReferenceImpl(
                 return false
             }
 
+            if (target is RsTypeAlias && owner.isImplOrTrait && path.parent is RsAssocTypeBinding) {
+                return super.isReferenceTo(target)
+            }
+
             // If `path.parent` is expression, then `path.reference.resolve()` will invoke type inference for the
             // function containing `path`, which can be very heavy. Trying to avoid it
             if (target !is RsTypeAlias && path.parent is RsPathExpr) {
@@ -160,16 +164,18 @@ fun resolvePathRaw(path: RsPath, lookup: ImplLookup? = null): List<ScopeEntry> {
 }
 
 fun resolvePath(path: RsPath, lookup: ImplLookup? = null): List<BoundElementWithVisibility<RsElement>> {
-    val result = collectPathResolveVariants(path) {
-        processPathResolveVariants(lookup, path, false, it)
-    }.let { rawResult ->
-        tryRefineAssocTypePath(path, lookup, rawResult) ?: rawResult
+    val pathParent = path.parent
+
+    val result = if (pathParent is RsAssocTypeBinding) {
+        collectPathResolveVariants(path) { processAssocTypeVariants(pathParent, it) }
+    } else {
+        collectPathResolveVariants(path) { processPathResolveVariants(lookup, path, false, it) }
+            .let { rawResult -> tryRefineAssocTypePath(path, lookup, rawResult) ?: rawResult }
     }
 
     // type A = Foo<T>
     //              ~ `T` can be either type or const argument.
     //                    Prefer types if they are
-    val pathParent = path.parent
     val result2 = if (pathParent is RsTypeReference && pathParent.parent is RsTypeArgumentList) {
         when (result.size) {
             0 -> emptyList()
@@ -406,7 +412,7 @@ private fun pathTypeParameters(path: RsPath): RsPsiPathParameters? {
 }
 
 private fun resolveAssocTypeBinding(trait: RsTraitItem, binding: RsAssocTypeBinding): RsTypeAlias? =
-    collectResolveVariants(binding.referenceName) { processAssocTypeVariants(trait, it) }
+    collectResolveVariants(binding.path.referenceName) { processAssocTypeVariants(trait, it) }
         .singleOrNull() as? RsTypeAlias?
 
 /** Resolves a reference through type aliases */
