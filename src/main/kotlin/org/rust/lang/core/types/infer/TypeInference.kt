@@ -14,6 +14,7 @@ import org.rust.lang.core.psi.ext.*
 import org.rust.lang.core.resolve.*
 import org.rust.lang.core.resolve.ref.MethodResolveVariant
 import org.rust.lang.core.resolve.ref.pathPsiSubst
+import org.rust.lang.core.resolve.ref.resolveAssocTypeBinding
 import org.rust.lang.core.resolve.ref.resolvePathRaw
 import org.rust.lang.core.types.*
 import org.rust.lang.core.types.consts.*
@@ -179,13 +180,20 @@ class RsInferenceContext(
                 }
                 RsTypeInferenceWalker(this, TyUnknown).inferReplCodeFragment(element)
             }
-            is RsBaseType, is RsTraitRef -> {
-                val path = when (element) {
+            is RsBaseType, is RsTraitRef, is RsAssocTypeBinding -> {
+                var path = when (element) {
                     is RsBaseType -> element.path
                     is RsTraitRef -> element.path
+                    is RsAssocTypeBinding -> element.parentPath
                     else -> null
                 }
-                val declaration = path?.let { resolvePathRaw(it, lookup) }?.singleOrNull()?.element as? RsGenericDeclaration
+
+                var declaration = path?.let { resolvePathRaw(it, lookup) }?.singleOrNull()?.element as? RsGenericDeclaration
+                if (element is RsAssocTypeBinding) {
+                    path = element.path
+                    declaration = (declaration as? RsTraitItem)?.let { resolveAssocTypeBinding(it, element) }
+                }
+
                 if (path != null && declaration != null) {
                     val constParameters = mutableListOf<RsConstParameter>()
                     val constArguments = mutableListOf<RsElement>()
@@ -1028,10 +1036,9 @@ private fun List<RsPolybound>?.toPredicates(selfTy: Ty): Sequence<PsiPredicate> 
         val traitRef = bound.bound.traitRef ?: return@flatMap emptySequence<PsiPredicate>()
         val boundTrait = traitRef.resolveToBoundTrait() ?: return@flatMap emptySequence<PsiPredicate>()
 
-        val assocTypeBounds = traitRef.path.typeArgumentList?.assocTypeBindingList.orEmpty().asSequence()
+        val assocTypeBounds = traitRef.path.assocTypeBindings.asSequence()
             .flatMap nestedFlatMap@{
-                val assoc = it.reference.resolve() as? RsTypeAlias
-                    ?: return@nestedFlatMap emptySequence<PsiPredicate>()
+                val assoc = it.resolveToAssocType() ?: return@nestedFlatMap emptySequence<PsiPredicate>()
                 val projectionTy = TyProjection.valueOf(selfTy, assoc)
                 val typeRef = it.typeReference
                 if (typeRef != null) {
