@@ -62,7 +62,7 @@ object RsAwaitCompletionProvider : RsCompletionProvider() {
     private fun Ty.lookupFutureOutputTy(lookup: ImplLookup): Ty {
         val futureTrait = lookup.items.Future ?: return TyUnknown
         val outputType = futureTrait.findAssociatedType("Output") ?: return TyUnknown
-        val selection = lookup.selectProjectionStrict(TraitRef(this, futureTrait.withSubst()), outputType)
+        val selection = lookup.selectProjectionStrict(TraitRef(this, futureTrait.withSubst()), outputType.withSubst())
         return selection.ok()?.value ?: TyUnknown
     }
 }

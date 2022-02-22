@@ -1010,7 +1010,8 @@ class RsTypeInferenceWalker(
         if (base.item != items.Result && base.item != items.Option) {
             val tryItem = items.Try ?: return TyUnknown
             val okType = tryItem.findAssociatedType("Ok") ?: return TyUnknown
-            return ctx.normalizeAssociatedTypesIn(TyProjection.valueOf(base, BoundElement(tryItem), okType)).value
+            val projection = TyProjection.valueOf(base, BoundElement(tryItem), BoundElement(okType))
+            return ctx.normalizeAssociatedTypesIn(projection).value
         }
         TypeInferenceMarks.QuestionOperator.hit()
         return base.typeArguments.getOrElse(0) { TyUnknown }
@@ -1311,7 +1312,7 @@ class RsTypeInferenceWalker(
     private fun registerTryProjection(resultTy: Ty, assocTypeName: String, assocTypeTy: Ty) {
         val tryTrait = items.Try ?: return
         val assocType = tryTrait.findAssociatedType(assocTypeName) ?: return
-        val projection = TyProjection.valueOf(resultTy, assocType)
+        val projection = TyProjection.valueOf(resultTy, BoundElement(assocType))
         val obligation = Obligation(Predicate.Projection(projection, assocTypeTy))
         fulfill.registerPredicateObligation(obligation)
     }
@@ -1340,7 +1341,7 @@ class RsTypeInferenceWalker(
     private fun Ty.lookupFutureOutputTy(lookup: ImplLookup): Ty {
         val futureTrait = lookup.items.Future ?: return TyUnknown
         val outputType = futureTrait.findAssociatedType("Output") ?: return TyUnknown
-        val selection = lookup.selectProjection(TraitRef(this, futureTrait.withSubst()), outputType)
+        val selection = lookup.selectProjection(TraitRef(this, futureTrait.withSubst()), outputType.withSubst())
         return selection.ok()?.register() ?: TyUnknown
     }
 

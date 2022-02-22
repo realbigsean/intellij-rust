@@ -7,10 +7,7 @@ package org.rust.lang.core.types.ty
 
 import com.intellij.codeInsight.completion.CompletionUtil
 import org.rust.lang.core.psi.RsTypeAlias
-import org.rust.lang.core.psi.ext.RsStructOrEnumItemElement
-import org.rust.lang.core.psi.ext.constParameters
-import org.rust.lang.core.psi.ext.lifetimeParameters
-import org.rust.lang.core.psi.ext.typeParameters
+import org.rust.lang.core.psi.ext.*
 import org.rust.lang.core.types.BoundElement
 import org.rust.lang.core.types.Substitution
 import org.rust.lang.core.types.consts.Const
@@ -87,19 +84,10 @@ data class TyAdt private constructor(
         fun valueOf(struct: RsStructOrEnumItemElement): TyAdt =
             TyAdt(
                 CompletionUtil.getOriginalOrSelf(struct),
-                defaultTypeArguments(struct),
-                defaultRegionArguments(struct),
-                defaultConstArguments(struct),
+                struct.defaultTypeArguments,
+                struct.defaultRegionArguments,
+                struct.defaultConstArguments,
                 null
             )
     }
 }
-
-private fun defaultTypeArguments(item: RsStructOrEnumItemElement): List<Ty> =
-    item.typeParameters.map { param -> TyTypeParameter.named(param) }
-
-private fun defaultRegionArguments(item: RsStructOrEnumItemElement): List<Region> =
-    item.lifetimeParameters.map { param -> ReEarlyBound(param) }
-
-private fun defaultConstArguments(item: RsStructOrEnumItemElement): List<Const> =
-    item.constParameters.map { param -> CtConstParameter(param) }

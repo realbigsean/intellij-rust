@@ -6,6 +6,12 @@
 package org.rust.lang.core.psi.ext
 
 import org.rust.lang.core.psi.*
+import org.rust.lang.core.types.consts.Const
+import org.rust.lang.core.types.consts.CtConstParameter
+import org.rust.lang.core.types.regions.ReEarlyBound
+import org.rust.lang.core.types.regions.Region
+import org.rust.lang.core.types.ty.Ty
+import org.rust.lang.core.types.ty.TyTypeParameter
 
 interface RsGenericDeclaration : RsElement {
     val typeParameterList: RsTypeParameterList?
@@ -39,3 +45,12 @@ val RsGenericDeclaration.requiredGenericParameters: List<RsGenericParameter>
             else -> false
         }
     }
+
+val RsGenericDeclaration.defaultRegionArguments: List<Region>
+    get() = lifetimeParameters.map { param -> ReEarlyBound(param) }
+
+val RsGenericDeclaration.defaultTypeArguments: List<Ty>
+    get() = typeParameters.map { param -> TyTypeParameter.named(param) }
+
+val RsGenericDeclaration.defaultConstArguments: List<Const>
+    get() = constParameters.map { param -> CtConstParameter(param) }

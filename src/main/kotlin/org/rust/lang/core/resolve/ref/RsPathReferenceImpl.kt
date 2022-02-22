@@ -229,8 +229,8 @@ private fun tryRefineAssocTypePath(
     //     type Item;
     // }      //^ resolved here
     val resolvedBoundElement = rawResult.singleOrNull() ?: return null
-    val resolved = resolvedBoundElement.inner.element as? RsTypeAlias ?: return null
-    if (resolved.owner !is RsAbstractableOwner.Trait) return null
+    val resolved = resolvedBoundElement.inner.downcast<RsTypeAlias>() ?: return null
+    if (resolved.element.owner !is RsAbstractableOwner.Trait) return null
 
     // 2. Check that we resolve a `Self`-qualified path or explicit type-qualified path:
     //    `Self::Type` or `<Foo as Trait>::Type`
@@ -240,11 +240,10 @@ private fun tryRefineAssocTypePath(
     // 3. Try to select a concrete impl for the associated type
     @Suppress("NAME_SHADOWING")
     val lookup = lookup ?: ImplLookup.relativeTo(path)
-    val selection = lookup.selectStrict(
-        (TyProjection.valueOf(resolved).substitute(resolvedBoundElement.inner.subst) as TyProjection).traitRef
-    ).ok()
+    val projection = TyProjection.valueOf(resolved).substitute(resolvedBoundElement.inner.subst) as TyProjection
+    val selection = lookup.selectStrict(projection.traitRef).ok()
     if (selection?.impl !is RsImplItem) return null
-    val element = selection.impl.expandedMembers.types.find { it.name == resolved.name } ?: return null
+    val element = selection.impl.expandedMembers.types.find { it.name == resolved.element.name } ?: return null
     val newSubst = lookup.ctx.fullyResolveWithOrigins(selection.subst)
     return listOf(resolvedBoundElement.copy(inner = BoundElement(element, newSubst)))
 }
