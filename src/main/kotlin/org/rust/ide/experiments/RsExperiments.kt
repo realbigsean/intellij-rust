@@ -12,6 +12,7 @@ object RsExperiments {
     @EnabledInStable
     const val TEST_TOOL_WINDOW = "org.rust.cargo.test.tool.window"
 
+    @EnabledInStable
     const val EVALUATE_BUILD_SCRIPTS = "org.rust.cargo.evaluate.build.scripts"
 
     const val CARGO_FEATURES_SETTINGS_GUTTER = "org.rust.cargo.features.settings.gutter"
@@ -19,6 +20,7 @@ object RsExperiments {
     @EnabledInStable
     const val MACROS_NEW_ENGINE = "org.rust.macros.new.engine"
 
+    @EnabledInStable
     const val PROC_MACROS = "org.rust.macros.proc"
 
     @EnabledInStable
